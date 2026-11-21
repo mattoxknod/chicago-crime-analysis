@@ -9,8 +9,13 @@
                     Geographically coded rows only, so it starts in 2002.
      cube_clock     year x hour x weekday x offence group — hour and weekday
                     would multiply cube_main past a sensible download.
-     cube_citywide  year x month x offence group x arrest x domestic, every
-                    row including 2001's ungeocoded incidents.
+
+   sql/03_cubes.sql also writes cube_citywide, which includes 2001's
+   ungeocoded incidents, but this page deliberately does not load it. Every
+   figure here can be scoped by community area, so it all has to come from
+   cube_main and therefore starts in 2002. Mixing in a citywide series that
+   counts rows cube_main cannot would make the time chart disagree with the
+   summary figures beside it. The report page covers 2001.
 
    Both the cubes and the report's figures are built from the same incident
    table, which is what keeps the two pages' numbers identical;
@@ -69,12 +74,11 @@
 
   /* --- Load --------------------------------------------------------------- */
 
-  let main, clock, citywide, areas, geo;
+  let main, clock, areas, geo;
   try {
-    const [mainCsv, clockCsv, cityCsv, caCsv, geoJson] = await Promise.all([
+    const [mainCsv, clockCsv, caCsv, geoJson] = await Promise.all([
       fetch("data/derived/cube_main.csv").then((r) => r.text()),
       fetch("data/derived/cube_clock.csv").then((r) => r.text()),
-      fetch("data/derived/cube_citywide.csv").then((r) => r.text()),
       fetch("data/derived/ca_lookup.csv").then((r) => r.text()),
       fetch("data/raw/community_areas.geojson")
         .then((r) => (r.ok ? r.json() : null))
@@ -83,7 +87,6 @@
 
     main = parseCube(mainCsv, ["y", "m", "ca", "a", "d", "n", "p"]);
     clock = parseCube(clockCsv, ["y", "h", "w", "n", "a"]);
-    citywide = parseCube(cityCsv, ["y", "m", "a", "d", "n"]);
 
     /* The community area lookup is small; parse it into plain objects. */
     const caLines = caCsv.trim().split("\n");
@@ -103,15 +106,14 @@
 
   const mainTypes = encode(main.t, main.length);
   const clockTypes = encode(clock.t, clock.length);
-  const cityTypes = encode(citywide.t, citywide.length);
 
   const areaById = new Map(areas.map((a) => [a.ca, a]));
   const typeNames = mainTypes.values;
   const years = (() => {
     let lo = Infinity, hi = -Infinity;
-    for (let i = 0; i < citywide.length; i++) {
-      if (citywide.y[i] < lo) lo = citywide.y[i];
-      if (citywide.y[i] > hi) hi = citywide.y[i];
+    for (let i = 0; i < main.length; i++) {
+      if (main.y[i] < lo) lo = main.y[i];
+      if (main.y[i] > hi) hi = main.y[i];
     }
     return { lo, hi };
   })();
