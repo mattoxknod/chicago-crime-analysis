@@ -1,0 +1,16 @@
+[
+	{"type_group":"Arson and criminal damage","offences":"ARSON; CRIMINAL DAMAGE"},
+	{"type_group":"Assault and battery","offences":"ASSAULT; BATTERY; INTIMIDATION; KIDNAPPING; STALKING"},
+	{"type_group":"Burglary","offences":"BURGLARY"},
+	{"type_group":"Fraud and deceptive practice","offences":"DECEPTIVE PRACTICE"},
+	{"type_group":"Homicide","offences":"HOMICIDE"},
+	{"type_group":"Motor vehicle theft","offences":"MOTOR VEHICLE THEFT"},
+	{"type_group":"Narcotics","offences":"NARCOTICS; OTHER NARCOTIC VIOLATION"},
+	{"type_group":"Offences involving children","offences":"OFFENSE INVOLVING CHILDREN"},
+	{"type_group":"Other","offences":"DOMESTIC VIOLENCE; NON-CRIMINAL; OTHER OFFENSE; RITUALISM"},
+	{"type_group":"Robbery","offences":"ROBBERY"},
+	{"type_group":"Sexual assault and offences","offences":"CRIM SEXUAL ASSAULT; HUMAN TRAFFICKING; OBSCENITY; PROSTITUTION; PUBLIC INDECENCY; SEX OFFENSE"},
+	{"type_group":"Theft","offences":"THEFT"},
+	{"type_group":"Trespass and public order","offences":"CRIMINAL TRESPASS; GAMBLING; INTERFERENCE WITH PUBLIC OFFICER; LIQUOR LAW VIOLATION; PUBLIC PEACE VIOLATION"},
+	{"type_group":"Weapons","offences":"CONCEALED CARRY LICENSE VIOLATION; WEAPONS VIOLATION"}
+]

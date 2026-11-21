@@ -36,6 +36,7 @@
       domesticMonthly: "domestic_monthly.json",
       settings: "settings.json",
       qualityYear: "quality_by_year.json",
+      geoCoverage: "geo_coverage.json",
     });
     d.headline = await D.one("headline.json");
     d.quality = await D.one("quality.json");
@@ -100,6 +101,13 @@
   const topByCount = d.areas.find((a) => a.rank_by_count === 1);
   const topByRate = d.areas.find((a) => a.rank_by_rate === 1);
 
+  /* Which years carry geographic analysis, read from the pipeline rather than
+     written in: the threshold is applied in sql/01_load.sql. */
+  const geoBad = d.geoCoverage.filter((r) => !r.usable_for_geography);
+  const geoGood = d.geoCoverage.filter((r) => r.usable_for_geography);
+  const geoFirst = geoGood.length ? geoGood[0].year : H.first_year;
+  const geoUsableRows = geoGood.reduce((s, r) => s + r.geocoded, 0);
+
   const incomeCorr = D.correlation(
     d.areas.map((a) => a.per_capita_income),
     d.areas.map((a) => a.violent_per_100k)
@@ -142,14 +150,27 @@
      Title block and headline figures
      ========================================================================= */
 
+  /* How much of the arrest-rate decline is composition rather than clearance.
+     Measured, not assumed: the counterfactual holds the offence mix at its
+     first-year shares and applies each year's own within-group rates. */
+  const cfFirst = d.counter.find((r) => r.year === H.first_year);
+  const cfTrough = d.counter.find((r) => r.year === troughRate.year);
+  const fallTotal = cfFirst.arrest_rate_actual - cfTrough.arrest_rate_actual;
+  const fallIfMixHeld = cfFirst.arrest_rate_actual - cfTrough.arrest_rate_mix_held_constant;
+  const mixShareOfFall = (100 * (fallTotal - fallIfMixHeld)) / fallTotal;
+
   document.querySelector("[data-standfirst]").innerHTML = `
     This is every crime the Chicago Police Department recorded between
     ${n(H.first_year)} and ${n(H.last_year)} — ${n(f.int(H.total_incidents))} incidents
     across ${n(H.months_covered)} months and ${n(H.community_areas)} community areas.
     Reported incidents fell by ${n(f.pct(Math.abs(H.pct_change_peak_to_trough)))} between
-    ${n(H.peak_year)} and ${n(H.trough_year)}. Over the same span the share of
-    incidents ending in an arrest fell by far more — and most of that second
-    decline turns out not to be about solving crimes at all.`;
+    ${n(H.peak_year)} and ${n(H.trough_year)}, and the share ending in an arrest
+    fell further still — from ${n(f.pct(peakRate.arrest_rate_all))} to
+    ${n(f.pct(troughRate.arrest_rate_all))}. There is a tidy explanation for
+    that second number, and this report spends its middle third establishing
+    that the tidy explanation accounts for about
+    ${n(f.pct(mixShareOfFall, 0))} of it. The rest is a real collapse in how
+    often a reported crime ends in an arrest.`;
 
   const keyfigures = [
     {
@@ -175,7 +196,7 @@
     {
       value: f.pct(conc10),
       label: `of violent Part I incidents fall in 10 of ${areasCount} community areas`,
-      note: "geographically coded incidents, 2002 onward",
+      note: "geographically coded incidents, ${geoFirst} onward",
     },
     {
       value: f.compact(H.acs_population),
@@ -258,8 +279,9 @@
      ${n(biggestDrop.year)}, when the rate went from
      ${n(f.pct(biggestDrop.from))} to ${n(f.pct(biggestDrop.to))} —
      ${n(f.dec(Math.abs(biggestDrop.delta), 1))} percentage points in one year.
-     A step that sharp is rarely a change in how often crimes get solved. It is
-     usually a change in what gets recorded.`,
+     A step that abrupt invites a bookkeeping explanation rather than a
+     behavioural one, and there is a good one available. The next three plates
+     test it, and find it accounts for a minority of the decline.`,
   ]);
   A.lineChart(chartHost("p2"), {
     series: [
@@ -294,7 +316,7 @@
      Plate 3 — how an offence reaches the record
      ========================================================================= */
 
-  setText("p3", `Some offences are arrests by definition, and they are what moved the rate`);
+  setText("p3", `Some offences are arrests by definition, which makes the citywide rate a blend of two different things`);
   setProse("p3", [
     `Arrest rates by offence do not form a spectrum of how hard crimes are to
      solve. They form two clusters. Burglary sits at
@@ -353,32 +375,39 @@
      Plate 4 — the decomposition
      ========================================================================= */
 
-  setText("p4", `Chicago did not stop making arrests. It stopped recording the offences that are arrests`);
+  const firstDecomp = decompByYear.get(H.first_year);
+  setText("p4", `The composition change is real, and it explains about a quarter of the fall`);
   setProse("p4", [
-    `Hold the two groups apart and the citywide decline comes apart with them.
-     Among citizen-reported offences the arrest rate went from
-     ${n(f.pct(peakRate.arrest_rate_citizen_reported))} in ${n(peakRate.year)}
-     to ${n(f.pct(latestDecomp.arrest_rate_citizen_reported))} in ${n(lastFull)}.
-     Among police-initiated offences it stayed where it always was, near
-     ${n(f.pct(latestDecomp.arrest_rate_police_initiated))}, because that is
-     what those records are.`,
-    `What changed is the mix. Police-initiated offences were
+    `The mix did shift, and sharply. Police-initiated offences were
      ${n(f.pct(peakRate.police_initiated_share))} of all recorded incidents in
      ${n(peakRate.year)} and ${n(f.pct(latestDecomp.police_initiated_share))} in
      ${n(lastFull)}. Narcotics alone fell from
      ${n(f.int(narcPeak.narcotics))} recorded incidents in ${n(narcPeak.year)}
-     to ${n(f.int(narcLatest.narcotics))} in ${n(lastFull)}. Drop narcotics
-     entirely and the ${n(lastFull)} arrest rate reads
-     ${n(f.pct(latestDecomp.arrest_rate_ex_narcotics))} rather than
-     ${n(f.pct(latestDecomp.arrest_rate_all))}.`,
-    `The counterfactual line puts a number on it. Holding the offence mix fixed
-     at its ${n(H.first_year)} composition and applying each year's own
-     within-group arrest rates, the citywide rate would have reached
-     ${n(f.pct(d.counter.find((r) => r.year === lastFull).arrest_rate_mix_held_constant))}
-     in ${n(lastFull)} instead of
-     ${n(f.pct(d.counter.find((r) => r.year === lastFull).arrest_rate_actual))}.
-     The gap between those two is the part of the famous decline that is
-     bookkeeping rather than behaviour.`,
+     to ${n(f.int(decompByYear.get(troughRate.year).narcotics))} in
+     ${n(troughRate.year)}, a fall of
+     ${n(f.pct(100 * (1 - decompByYear.get(troughRate.year).narcotics / narcPeak.narcotics), 0))}.
+     Since those offences are arrests by construction, losing them drags the
+     citywide average down on its own.`,
+    `The counterfactual puts a number on how much. Holding the offence mix
+     fixed at its ${n(H.first_year)} composition and applying each year's own
+     within-group arrest rates, the citywide rate in ${n(troughRate.year)}
+     would have been ${n(f.pct(cfTrough.arrest_rate_mix_held_constant))} rather
+     than ${n(f.pct(cfTrough.arrest_rate_actual))}. The total fall from
+     ${n(H.first_year)} is ${n(f.dec(fallTotal, 1))} percentage points; with
+     the mix held constant it is ${n(f.dec(fallIfMixHeld, 1))}. Composition
+     therefore accounts for ${n(f.dec(fallTotal - fallIfMixHeld, 1))} points —
+     about ${n(f.pct(mixShareOfFall, 0))} of the decline.`,
+    `Which means roughly three quarters of it is not composition. The arrest
+     rate fell <em>within</em> the citizen-reported group too, from
+     ${n(f.pct(firstDecomp.arrest_rate_citizen_reported))} in
+     ${n(H.first_year)} to
+     ${n(f.pct(decompByYear.get(troughRate.year).arrest_rate_citizen_reported))}
+     in ${n(troughRate.year)}. It even fell inside the police-initiated group,
+     from ${n(f.pct(firstDecomp.arrest_rate_police_initiated))} to
+     ${n(f.pct(decompByYear.get(troughRate.year).arrest_rate_police_initiated))},
+     which says those categories changed character as well — more trespass and
+     weapons offences recorded without an arrest attached. The tidy
+     explanation is a real effect and a minority one.`,
   ]);
   A.lineChart(chartHost("p4"), {
     series: [
@@ -420,20 +449,35 @@
      Plate 5 — clearance
      ========================================================================= */
 
-  setText("p5", `On the measure that does mean solving crimes, the fall is real but smaller`);
+  const y0 = byYear.get(H.first_year);
+  const yTrough = byYear.get(troughRate.year);
+  const yLast = byYear.get(lastFull);
+  const propFall = 100 * (1 - yTrough.property_clearance / y0.property_clearance);
+  const violFall = 100 * (1 - yTrough.violent_clearance / y0.violent_clearance);
+  setText("p5", `On the strictest measure, property crime clearance fell by three quarters`);
   setProse("p5", [
     `The FBI's Part I index offences — homicide, criminal sexual assault,
      robbery, aggravated assault and battery, burglary, theft, motor vehicle
-     theft and arson — are all citizen-reported, and they are defined by an
-     outside standard rather than by anything chosen here. For those offences,
-     arrest-as-a-share-of-incidents is a clearance rate in the ordinary sense.`,
-    `Violent Part I clearance ran at
-     ${n(f.pct(byYear.get(H.first_year).violent_clearance))} in
-     ${n(H.first_year)} and ${n(f.pct(byYear.get(lastFull).violent_clearance))}
-     in ${n(lastFull)}. Property Part I clearance went from
-     ${n(f.pct(byYear.get(H.first_year).property_clearance))} to
-     ${n(f.pct(byYear.get(lastFull).property_clearance))}. Both fell. Neither
-     fell by two thirds.`,
+     theft and arson — are citizen-reported, and they are defined by an outside
+     standard rather than by anything chosen here. No composition argument
+     touches them: the category is fixed. For these, arrest as a share of
+     incidents is a clearance rate in the ordinary sense, and it is the hardest
+     test of whether the decline is real.`,
+    `It is. Violent Part I clearance ran at ${n(f.pct(y0.violent_clearance))} in
+     ${n(H.first_year)} and bottomed at
+     ${n(f.pct(yTrough.violent_clearance))} in ${n(troughRate.year)}, a fall of
+     ${n(f.pct(violFall, 0))}. Property Part I clearance went from
+     ${n(f.pct(y0.property_clearance))} to
+     ${n(f.pct(yTrough.property_clearance))} — down ${n(f.pct(propFall, 0))}.
+     By ${n(troughRate.year)} roughly ${n(f.dec(100 / yTrough.property_clearance, 0))}
+     reported burglaries, thefts, vehicle thefts and arsons were being recorded
+     for every one that ended in an arrest.`,
+    `Both have since recovered somewhat —
+     ${n(f.pct(yLast.violent_clearance))} and
+     ${n(f.pct(yLast.property_clearance))} in ${n(lastFull)} — and neither is
+     back where it started. This is the plate that settles the question the
+     report opened with. The composition effect of plate four is real, but the
+     decline it cannot explain is larger than the one it can.`,
   ]);
   A.lineChart(chartHost("p5"), {
     series: [
@@ -717,8 +761,8 @@
     "p10",
     `<b>Concentration curve.</b> Community areas sorted by violent Part I
      incidents, with the running cumulative share. Geographically coded
-     incidents only, so ${n(2002)} onward — ${n(H.first_year)} carries almost no
-     community area coding, as the colophon sets out.`
+     incidents in years whose geographic coverage clears the threshold set out
+     in the colophon, so ${n(geoFirst)} onward.`
   );
   A.attachTable(
     figureOf("p10"),
@@ -758,7 +802,7 @@
     `The denominator deserves naming. It is the 2023 American Community Survey
      five-year population estimate, held constant across all years, so these
      are incidents per present-day resident rather than a true time-varying
-     rate. Areas whose population changed substantially since ${n(2002)} are
+     rate. Areas whose population changed substantially since ${n(geoFirst)} are
      measured against the wrong base, and that limitation cannot be fixed from
      this data.`,
   ]);
@@ -968,14 +1012,23 @@
      <code>CRIMINAL SEXUAL ASSAULT</code> and <code>CRIM SEXUAL ASSAULT</code>
      are the same offence under two labels used in different periods and are
      merged, which otherwise reads as one category ending and another starting.
-     No incident is excluded from the citywide series. Anything broken out by
-     community area excludes rows with no community area —
-     ${n(f.int(q.rows_without_community_area))} rows, or
-     ${n(f.pct(q.pct_without_community_area, 2))} of the total, of which
-     ${n(f.int(q.ungeocoded_in_2001))} are in ${n(H.first_year)} alone. That one
-     year is essentially ungeocoded, so every geographic figure starts in
-     ${n(2002)}. ${n(f.pct(q.pct_without_coordinates, 2))} of rows have no
-     latitude and longitude and are absent from the map page only.`,
+     No incident is excluded from the citywide series, and
+     ${n(f.pct(q.pct_without_coordinates, 2))} of rows have no latitude and
+     longitude, which affects only the map page.`,
+    `<b>Where the maps start, and why it is not ${n(H.first_year)}.</b>
+     Geographic coding is not simply absent at the start of the series; it
+     phases in. ${n(geoBad[0].year)} is ${n(f.pct(geoBad[0].pct_geocoded, 1))}
+     geocoded and ${n(geoBad[1].year)} is
+     ${n(f.pct(geoBad[1].pct_geocoded, 1))}, against
+     ${n(f.pct(geoGood[0].pct_geocoded, 1))} in ${n(geoFirst)} and every year
+     after. A year that is a quarter unmapped would understate each of its
+     community areas by about a quarter, which on a map looks like a real
+     shortfall rather than like missing data — the more dangerous of the two
+     failures. So rather than fix a cutoff by hand, the pipeline keeps any year
+     at or above ${n("95%")} coverage and drops the rest: here that means every
+     figure broken out by community area or ward covers ${n(geoFirst)} onward,
+     ${n(f.int(geoUsableRows))} incidents. Citywide figures still use all
+     ${n(H.years_covered)} years.`,
     `<b>The partial year.</b> ${n(H.last_year)} is incomplete: the extract ends
      ${n(q.last_incident.slice(0, 10))} with ${n(f.int(q.partial_year_rows))}
      rows. It is excluded from every annual chart and from all year-on-year

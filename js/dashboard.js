@@ -5,17 +5,22 @@
    counts instead and sums them. sql/03_cubes.sql writes three cubes:
 
      cube_main      year x month x community area x offence group x arrest
-                    x domestic  — the source for everything except the clock.
-                    Geographically coded rows only, so it starts in 2002.
+                    x domestic — the source for everything except the clock.
+                    Geocoded rows in years whose coverage clears the threshold
+                    in 01_load.sql, which is why it starts after the first
+                    year of the series.
      cube_clock     year x hour x weekday x offence group — hour and weekday
                     would multiply cube_main past a sensible download.
 
-   sql/03_cubes.sql also writes cube_citywide, which includes 2001's
-   ungeocoded incidents, but this page deliberately does not load it. Every
+   sql/03_cubes.sql also writes cube_citywide, covering every row including the
+   ungeocoded early years, but this page deliberately does not load it. Every
    figure here can be scoped by community area, so it all has to come from
-   cube_main and therefore starts in 2002. Mixing in a citywide series that
-   counts rows cube_main cannot would make the time chart disagree with the
-   summary figures beside it. The report page covers 2001.
+   cube_main. Mixing in a citywide series that counts rows cube_main cannot
+   would make the time chart disagree with the summary figures beside it. The
+   report page covers the full series.
+
+   The offence group travels as a small integer over type_lookup.csv rather
+   than as a name repeated once per row, which more than halves cube_main.
 
    Both the cubes and the report's figures are built from the same incident
    table, which is what keeps the two pages' numbers identical;
@@ -63,30 +68,35 @@
     return cols;
   }
 
-  /* String columns become integer codes, so the hot loop compares numbers. */
-  function encode(column, length) {
-    const values = [...new Set(Array.prototype.slice.call(column, 0, length))].sort();
-    const index = new Map(values.map((v, i) => [v, i]));
-    const codes = new Int16Array(length);
-    for (let i = 0; i < length; i++) codes[i] = index.get(column[i]);
-    return { values, index, codes };
-  }
-
   /* --- Load --------------------------------------------------------------- */
 
-  let main, clock, areas, geo;
+  let main, clock, areas, geo, typeLookup;
   try {
-    const [mainCsv, clockCsv, caCsv, geoJson] = await Promise.all([
+    const [mainCsv, clockCsv, typeCsv, caCsv, geoJson] = await Promise.all([
       fetch("data/derived/cube_main.csv").then((r) => r.text()),
       fetch("data/derived/cube_clock.csv").then((r) => r.text()),
+      fetch("data/derived/type_lookup.csv").then((r) => r.text()),
       fetch("data/derived/ca_lookup.csv").then((r) => r.text()),
       fetch("data/raw/community_areas.geojson")
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
     ]);
 
-    main = parseCube(mainCsv, ["y", "m", "ca", "a", "d", "n", "p"]);
-    clock = parseCube(clockCsv, ["y", "h", "w", "n", "a"]);
+    main = parseCube(mainCsv, ["y", "m", "ca", "t", "a", "d", "n", "p"]);
+    clock = parseCube(clockCsv, ["y", "h", "w", "t", "n", "a"]);
+
+    /* The cubes carry an integer offence-group code; this resolves it. The
+       lookup is sorted by code, so its row order is the code order. */
+    typeLookup = typeCsv
+      .trim()
+      .split("\n")
+      .slice(1)
+      .map((line) => {
+        const i = line.indexOf(",");
+        return { t: +line.slice(0, i), name: line.slice(i + 1) };
+      })
+      .sort((a, b) => a.t - b.t)
+      .map((r) => r.name);
 
     /* The community area lookup is small; parse it into plain objects. */
     const caLines = caCsv.trim().split("\n");
@@ -104,8 +114,19 @@
     return;
   }
 
-  const mainTypes = encode(main.t, main.length);
-  const clockTypes = encode(clock.t, clock.length);
+  /* Both cubes already carry integer codes over the same lookup, so the
+     string-encoding step the parser used to do is unnecessary: the codes are
+     the encoding. mainTypes keeps the same shape the rest of the file expects. */
+  const mainTypes = {
+    values: typeLookup,
+    index: new Map(typeLookup.map((nm, i) => [nm, i])),
+    codes: main.t,
+  };
+  const clockTypes = {
+    values: typeLookup,
+    index: mainTypes.index,
+    codes: clock.t,
+  };
 
   const areaById = new Map(areas.map((a) => [a.ca, a]));
   const typeNames = mainTypes.values;

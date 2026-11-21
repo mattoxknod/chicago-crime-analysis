@@ -28,14 +28,22 @@ SELECT 'total incidents'            AS check,
             'total incidents') AS result;
 
 -- 2. Geocoded totals, which cube_main is restricted to ----------------------
+-- cube_main covers geocoded rows in years that clear the coverage threshold,
+-- so the comparison has to carry the same restriction. Checking it against all
+-- geocoded rows would fail on 2001 and 2002, which are deliberately excluded.
 
-WITH from_rows AS (SELECT count(*) AS v FROM crimes WHERE geo_ok),
+WITH from_rows AS (
+    SELECT count(*) AS v FROM crimes
+    WHERE geo_ok AND yr IN (SELECT yr FROM geo_years)
+),
      from_cube AS (SELECT sum(n) AS v FROM cube_main)
-SELECT 'geocoded incidents'         AS check,
-       (SELECT v FROM from_rows)    AS from_incident_table,
-       (SELECT v FROM from_cube)    AS from_cube,
+SELECT 'geocoded incidents in usable years' AS check,
+       (SELECT v FROM from_rows)            AS from_incident_table,
+       (SELECT v FROM from_cube)            AS from_cube,
        must((SELECT v FROM from_rows) = (SELECT v FROM from_cube),
-            'geocoded incidents') AS result;
+            'geocoded incidents in usable years') AS result,
+       (SELECT count(*) FROM geo_coverage WHERE NOT usable_for_geography)
+                                            AS years_excluded;
 
 -- 3. Arrest rate by year, every year, both ways -----------------------------
 -- The report's central series. Compared to two decimal places.
@@ -63,13 +71,17 @@ SELECT 'arrest rate by year'                AS check,
 WITH rows_by_ca AS (
     SELECT ca, count(*) AS n
     FROM crimes
-    WHERE geo_ok AND fbi_code IN ('01A','01B','02','03','04A','04B')
+    WHERE geo_ok AND yr IN (SELECT yr FROM geo_years)
+      AND fbi_code IN ('01A','01B','02','03','04A','04B')
     GROUP BY 1
 ),
 -- Part I violent is a subset of is_part1, so it cannot be read off the cube's
 -- n_part1 column alone; the cube is checked on its total Part I count instead.
 cube_part1 AS (SELECT sum(n_part1) AS v FROM cube_main),
-rows_part1 AS (SELECT count(*) AS v FROM crimes WHERE geo_ok AND is_part1)
+rows_part1 AS (
+    SELECT count(*) AS v FROM crimes
+    WHERE geo_ok AND yr IN (SELECT yr FROM geo_years) AND is_part1
+)
 SELECT 'Part I incidents (geocoded)' AS check,
        (SELECT v FROM rows_part1)    AS from_incident_table,
        (SELECT v FROM cube_part1)    AS from_cube,

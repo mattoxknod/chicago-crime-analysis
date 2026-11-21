@@ -10,13 +10,15 @@
 -- ---------------------------------------------------------------------------
 
 -- 1. Raw incidents -----------------------------------------------------------
--- The chunk files overlap by construction only if a row was edited mid-
--- download and shifted Socrata's pagination, so we deduplicate on id. id is
--- the city's own stable incident number; ":id" is Socrata's internal row key
--- and is dropped after load.
+-- One file per year, written by scripts/fetch_crimes.sh, which already checked
+-- each year's row count against the portal's own count for that year. The
+-- files cannot overlap -- they are disjoint year slices -- but we still
+-- deduplicate on the city's incident id below, because the dataset is
+-- refreshed daily and a record edited between two of our requests could in
+-- principle be written with a corrected year and appear twice.
 
 CREATE OR REPLACE TABLE crimes_raw AS
-SELECT * FROM read_csv_auto('data/raw/crimes_chunks/crimes_*.csv', sample_size = -1, union_by_name = true);
+SELECT * FROM read_csv_auto('data/raw/crimes_years/crimes_*.csv', sample_size = -1, union_by_name = true);
 
 -- 2. Cleaned incidents -------------------------------------------------------
 
@@ -84,16 +86,33 @@ SELECT
         ELSE 'citizen-reported'
     END                                             AS discovery,
 
-    -- Geographic coding is absent for essentially all of 2001 (99.4% of that
-    -- year has no community area and 99.8% has no ward, against 0.0% in every
-    -- later year). Rather than drop those rows outright, we flag them: the
-    -- citywide time series uses all years, and anything broken out by
-    -- community area or ward filters on geo_ok and therefore starts in 2002.
+    -- Whether this row carries a usable community area at all.
     (ca IS NOT NULL AND ca BETWEEN 1 AND 77)        AS geo_ok
 FROM deduped
 WHERE rn = 1;
 
--- 3. Community areas ---------------------------------------------------------
+-- 3. Which years can carry geographic analysis -------------------------------
+-- Geographic coding is not simply "missing in 2001". Coverage is 1.3% in 2001,
+-- 72.8% in 2002, and ~100% from 2003 on. A year that is a quarter unmapped
+-- would understate every community area in it by about a quarter, which looks
+-- like a real decline on a map rather than like missing data.
+--
+-- So the cutoff is derived from coverage rather than written in by hand: any
+-- year at or above the threshold is usable for anything broken out by
+-- community area or ward. Citywide series are unaffected and use every year.
+
+CREATE OR REPLACE TABLE geo_coverage AS
+SELECT yr,
+       count(*)                                             AS rows,
+       count(*) FILTER (WHERE geo_ok)                       AS geocoded,
+       round(100.0 * count(*) FILTER (WHERE geo_ok) / count(*), 2) AS pct_geocoded,
+       (count(*) FILTER (WHERE geo_ok) >= 0.95 * count(*))  AS usable_for_geography
+FROM crimes GROUP BY 1 ORDER BY 1;
+
+CREATE OR REPLACE VIEW geo_years AS
+SELECT yr FROM geo_coverage WHERE usable_for_geography;
+
+-- 4. Community areas ---------------------------------------------------------
 -- Boundaries carry the area number and an upper-case name; the ACS table
 -- carries the same upper-case name; the socioeconomic table carries the area
 -- number and a title-case name. So: ACS joins by name, socioeconomic joins by
@@ -129,7 +148,7 @@ JOIN acs ON acs.ca_name = geo.ca_name
 LEFT JOIN se ON se.ca = geo.ca
 ORDER BY geo.ca;
 
--- 4. Assertions --------------------------------------------------------------
+-- 5. Assertions --------------------------------------------------------------
 -- These fail the build loudly rather than letting a wrong number reach a page.
 
 CREATE OR REPLACE TEMP MACRO must(cond, label) AS
@@ -145,7 +164,7 @@ SELECT must((SELECT count(*) FROM community_areas) = 77,
        must((SELECT count(*) FROM crimes WHERE geo_ok AND yr >= 2002) > 0,
             'geographically coded incidents exist from 2002')                     AS check_4;
 
--- 5. Load summary ------------------------------------------------------------
+-- 6. Load summary ------------------------------------------------------------
 
 SELECT 'rows in chunks'      AS metric, count(*)::VARCHAR AS value FROM crimes_raw
 UNION ALL SELECT 'rows after dedupe',   count(*)::VARCHAR FROM crimes

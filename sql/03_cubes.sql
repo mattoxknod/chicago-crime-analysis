@@ -66,14 +66,17 @@ LEFT JOIN type_groups g USING (primary_type);
 -- year x month x community area x offence group x arrest x domestic.
 -- Supports the time, geography, offence, arrest and domestic filters, and any
 -- breakdown over those dimensions, with exact counts for every combination.
--- Geographically coded rows only, so it begins in 2002.
+-- Restricted to geocoded rows in years whose coverage clears the threshold in
+-- 01_load.sql, which in this extract means 2003 onward: 2001 is 1.3% geocoded
+-- and 2002 is 72.8%, and a quarter-unmapped year would read on the map as a
+-- real shortfall rather than as missing data.
 
 CREATE OR REPLACE TABLE cube_main AS
 SELECT yr, mo, ca, type_group, arrest, domestic,
        count(*)                        AS n,
        count(*) FILTER (WHERE is_part1) AS n_part1
 FROM v_grouped
-WHERE geo_ok
+WHERE geo_ok AND yr IN (SELECT yr FROM geo_years)
 GROUP BY ALL;
 
 -- Cube B: the clock ---------------------------------------------------------
@@ -86,8 +89,9 @@ FROM v_grouped
 GROUP BY ALL;
 
 -- Cube C: citywide monthly totals ------------------------------------------
--- Every row including 2001's ungeocoded incidents, so the dashboard can show a
--- true citywide series alongside cube A's 2002-onward geographic one.
+-- Every row, including the ungeocoded ones cube A drops. Not loaded by the
+-- dashboard; it exists so 04_verify.sql can check totals against the full
+-- incident count.
 
 CREATE OR REPLACE TABLE cube_citywide AS
 SELECT yr, mo, type_group, arrest, domestic, count(*) AS n
@@ -111,30 +115,49 @@ CREATE OR REPLACE TEMP MACRO must(cond, label) AS
     CASE WHEN cond THEN 'ok: ' || label
          ELSE error('ASSERTION FAILED: ' || label) END;
 
-SELECT must((SELECT sum(n) FROM cube_main) = (SELECT count(*) FROM crimes WHERE geo_ok),
-            'cube_main totals equal the geocoded incident count')      AS check_1,
+SELECT must((SELECT sum(n) FROM cube_main)
+            = (SELECT count(*) FROM crimes
+               WHERE geo_ok AND yr IN (SELECT yr FROM geo_years)),
+            'cube_main totals equal the geocoded incidents in usable years') AS check_1,
        must((SELECT sum(n) FROM cube_clock) = (SELECT count(*) FROM crimes),
-            'cube_clock totals equal every incident')                  AS check_2,
+            'cube_clock totals equal every incident')                        AS check_2,
        must((SELECT sum(n) FROM cube_citywide) = (SELECT count(*) FROM crimes),
-            'cube_citywide totals equal every incident')               AS check_3,
+            'cube_citywide totals equal every incident')                     AS check_3,
        must((SELECT sum(n_part1) FROM cube_main)
-            = (SELECT count(*) FROM crimes WHERE geo_ok AND is_part1),
-            'cube_main Part I totals agree')                           AS check_4;
+            = (SELECT count(*) FROM crimes
+               WHERE geo_ok AND yr IN (SELECT yr FROM geo_years) AND is_part1),
+            'cube_main Part I totals agree')                                 AS check_4;
 
 -- Export --------------------------------------------------------------------
 -- CSV rather than JSON: at these row counts the repeated key names in JSON
 -- cost several times the payload, and GitHub Pages serves CSV gzipped.
 -- Booleans export as integers to keep the files narrow.
+--
+-- The offence group is exported as a small integer rather than its name. The
+-- names average about twenty characters and repeat once per row, which was
+-- more than half the uncompressed size of cube_main on its own; the dashboard
+-- resolves them through type_lookup.csv, which it needs to build the filter
+-- list anyway.
+
+CREATE OR REPLACE TABLE type_lookup AS
+SELECT row_number() OVER (ORDER BY type_group) - 1 AS t, type_group
+FROM (SELECT DISTINCT type_group FROM v_grouped);
 
 COPY (
-    SELECT yr AS y, mo AS m, ca, type_group AS t,
-           arrest::INT AS a, domestic::INT AS d, n, n_part1 AS p
-    FROM cube_main ORDER BY yr, mo, ca
+    SELECT t, type_group AS name FROM type_lookup ORDER BY t
+) TO 'data/derived/type_lookup.csv' (FORMAT CSV, HEADER true);
+
+COPY (
+    SELECT c.yr AS y, c.mo AS m, c.ca, l.t,
+           c.arrest::INT AS a, c.domestic::INT AS d, c.n, c.n_part1 AS p
+    FROM cube_main c JOIN type_lookup l USING (type_group)
+    ORDER BY c.yr, c.mo, c.ca
 ) TO 'data/derived/cube_main.csv' (FORMAT CSV, HEADER true);
 
 COPY (
-    SELECT yr AS y, hr AS h, dow AS w, type_group AS t, n, n_arrest AS a
-    FROM cube_clock ORDER BY yr, hr, dow
+    SELECT c.yr AS y, c.hr AS h, c.dow AS w, l.t, c.n, c.n_arrest AS a
+    FROM cube_clock c JOIN type_lookup l USING (type_group)
+    ORDER BY c.yr, c.hr, c.dow
 ) TO 'data/derived/cube_clock.csv' (FORMAT CSV, HEADER true);
 
 COPY (

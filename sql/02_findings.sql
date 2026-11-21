@@ -12,8 +12,9 @@
 --   * "Part I" means an FBI index offence, by fbi_code (see 01_load.sql).
 --     Violent Part I = 01A, 01B, 02, 03, 04A, 04B. Property Part I = 05, 06,
 --     07, 09.
---   * Anything broken out by community area filters on geo_ok, so it starts in
---     2002; 2001 has no geographic coding.
+--   * Anything broken out by community area is restricted to geocoded rows in
+--     years whose coverage clears the threshold in 01_load.sql -- 2003 onward
+--     here, since 2001 is 1.3% geocoded and 2002 only 72.8%.
 --   * 2026 is a partial year (the extract ends mid-November), so it is
 --     excluded from year-over-year comparisons and flagged everywhere it
 --     appears. The "latest full year" is 2025.
@@ -243,7 +244,7 @@ COPY (
 COPY (
     WITH per_ca AS (
         SELECT ca, count(*) FILTER (WHERE is_violent_p1) AS violent, count(*) AS total
-        FROM v_crimes WHERE geo_ok GROUP BY 1
+        FROM v_crimes WHERE geo_ok AND yr IN (SELECT yr FROM geo_years) GROUP BY 1
     ),
     ranked AS (
         SELECT ca, violent, total,
@@ -273,7 +274,7 @@ COPY (
                count(*) FILTER (WHERE is_property_p1)                 AS property,
                count(*) FILTER (WHERE yr = (SELECT last_full_year FROM b)) AS latest_year,
                round(100.0 * count(*) FILTER (WHERE arrest) / count(*), 2) AS arrest_rate
-        FROM v_crimes WHERE geo_ok GROUP BY 1
+        FROM v_crimes WHERE geo_ok AND yr IN (SELECT yr FROM geo_years) GROUP BY 1
     ),
     joined AS (
         SELECT c.ca, c.ca_name AS name, c.population, c.per_capita_income,
@@ -378,7 +379,14 @@ COPY (
     FROM crimes
 ) TO 'data/derived/quality.json' (FORMAT JSON, ARRAY true);
 
--- Per-year geographic coverage, so the 2001 gap is shown, not just asserted.
+-- Which years clear the geographic-coverage threshold, so the page can state
+-- where its maps actually start rather than asserting a year.
+COPY (
+    SELECT yr AS year, rows, geocoded, pct_geocoded, usable_for_geography
+    FROM geo_coverage ORDER BY yr
+) TO 'data/derived/geo_coverage.json' (FORMAT JSON, ARRAY true);
+
+-- Per-year geographic coverage, so the gap is shown, not just asserted.
 COPY (
     SELECT yr AS year, count(*) AS incidents,
            round(100.0 * count(*) FILTER (WHERE NOT geo_ok) / count(*), 2) AS pct_missing_community_area,

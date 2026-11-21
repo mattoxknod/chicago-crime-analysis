@@ -1,0 +1,14 @@
+[
+	{"month":1,"violent_vs_mean":-10.26,"property_vs_mean":-7.22,"total_vs_mean":-6.15},
+	{"month":2,"violent_vs_mean":-28.09,"property_vs_mean":-21.53,"total_vs_mean":-17.14},
+	{"month":3,"violent_vs_mean":-11.55,"property_vs_mean":-9.46,"total_vs_mean":-2.55},
+	{"month":4,"violent_vs_mean":-6.71,"property_vs_mean":-8.9,"total_vs_mean":-3.4},
+	{"month":5,"violent_vs_mean":6.89,"property_vs_mean":0.79,"total_vs_mean":5.84},
+	{"month":6,"violent_vs_mean":11.9,"property_vs_mean":4.44,"total_vs_mean":6.2},
+	{"month":7,"violent_vs_mean":19.4,"property_vs_mean":14.35,"total_vs_mean":11.67},
+	{"month":8,"violent_vs_mean":15.5,"property_vs_mean":14.87,"total_vs_mean":10.38},
+	{"month":9,"violent_vs_mean":8.14,"property_vs_mean":6.79,"total_vs_mean":4.12},
+	{"month":10,"violent_vs_mean":8.62,"property_vs_mean":9.4,"total_vs_mean":5.14},
+	{"month":11,"violent_vs_mean":-5.24,"property_vs_mean":-0.87,"total_vs_mean":-5.25},
+	{"month":12,"violent_vs_mean":-8.6,"property_vs_mean":-2.65,"total_vs_mean":-8.85}
+]

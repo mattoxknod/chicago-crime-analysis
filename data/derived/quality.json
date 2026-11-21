@@ -1,0 +1,3 @@
+[
+	{"rows_downloaded":8682885,"rows_after_dedupe":8682885,"duplicates_removed":0,"rows_without_community_area":616493,"pct_without_community_area":7.1,"ungeocoded_in_2001":479583,"rows_without_coordinates":101229,"pct_without_coordinates":1.17,"rows_timestamped_midnight":175923,"pct_timestamped_midnight":2.03,"last_incident":"2026-11-11 00:00:00","last_updated":"2026-11-18 15:42:47","partial_year_rows":201671}
+]
