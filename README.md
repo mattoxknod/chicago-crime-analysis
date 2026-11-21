@@ -133,7 +133,8 @@ fetch, so the published site works without running anything:
 | `monthly.json` | Citywide monthly totals. |
 | `cube_main.csv` | year × month × community area × offence group × arrest × domestic. The dashboard's main source: 588,887 rows, 2003 onward. The offence group travels as an integer code over `type_lookup.csv`, which more than halves the file. |
 | `cube_clock.csv` | year × hour × weekday × offence group. |
-| `cube_citywide.csv` | year × month × offence group × arrest × domestic, including 2001. |
+| `cube_citywide.csv` | year × month × offence group × arrest × domestic, every year including the ungeocoded ones. Not loaded by the dashboard; it exists so `04_verify.sql` can check totals against the full incident count. |
+| `community_areas.geojson` | The 77 community area boundaries, coordinates rounded to five decimals (about a metre) and stripped to the two properties the pages use: 2.0 MB down to 1.1 MB, 197 KB gzipped. Committed rather than left in `data/raw/`, because the map and the dashboard choropleth fetch it at runtime. |
 | `ca_lookup.csv`, `type_lookup.csv`, `type_group_map.json` | The lookups the dashboard needs, and the offence-to-group mapping in full. |
 | `geo_coverage.json` | Geographic coding coverage per year, and which years clear the threshold for map and community-area figures. |
 

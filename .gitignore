@@ -1,7 +1,10 @@
-# Raw inputs are not committed: the crime extract is ~1.9 GB across 18 chunks,
-# far past GitHub's 100 MB per-file limit. scripts/fetch_crimes.sh and
-# scripts/fetch_data.sh rebuild data/raw/ from the city's portal, and
-# sql/ rebuilds data/derived/ from data/raw/.
+# Raw inputs are not committed: the incident extract is ~1.6 GB across 26 files,
+# far past GitHub's 100 MB per-file limit. scripts/fetch_crimes.sh rebuilds it
+# from the city's portal and sql/ rebuilds data/derived/ from it.
+#
+# The community area boundaries are the exception and live in data/derived/:
+# the pages fetch that file at runtime, so it has to be committed for the
+# published site to work.
 data/raw/
 
 # The working DuckDB database, rebuilt by sql/01_load.sql.

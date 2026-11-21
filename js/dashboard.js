@@ -77,7 +77,7 @@
       fetch("data/derived/cube_clock.csv").then((r) => r.text()),
       fetch("data/derived/type_lookup.csv").then((r) => r.text()),
       fetch("data/derived/ca_lookup.csv").then((r) => r.text()),
-      fetch("data/raw/community_areas.geojson")
+      fetch("data/derived/community_areas.geojson")
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
     ]);

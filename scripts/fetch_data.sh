@@ -50,7 +50,7 @@ fetch "https://data.cityofchicago.org/resource/kn9c-c2s2.csv?\$limit=200" \
 # area_numbe property joins to community_area in the incident extract.
 echo "3/3  Community area boundaries (GeoJSON, for the map page)"
 fetch "https://data.cityofchicago.org/resource/igwz-8jzy.geojson?\$limit=100" \
-      "$RAW/community_areas.geojson" "community_areas.geojson"
+      "data/derived/community_areas.geojson" "community_areas.geojson"
 
 echo
 echo "Done. Next: bash scripts/fetch_crimes.sh for the incident extract."

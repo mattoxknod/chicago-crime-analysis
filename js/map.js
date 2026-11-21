@@ -24,26 +24,32 @@
   const loading = $("[data-loading]");
   const app = $("[data-app]");
 
-  let areas, geo, typeYear, headline;
+  let areas, geo, typeYear, headline, geoCoverage;
   try {
-    const [a, g, ty, h] = await Promise.all([
+    const [a, g, ty, h, gc] = await Promise.all([
       D.json("community_areas.json"),
-      fetch("data/raw/community_areas.geojson").then((r) => {
+      fetch("data/derived/community_areas.geojson").then((r) => {
         if (!r.ok) throw new Error(`boundaries: HTTP ${r.status}`);
         return r.json();
       }),
       D.json("type_year.json"),
       D.one("headline.json"),
+      D.json("geo_coverage.json"),
     ]);
     areas = a;
     geo = g;
     typeYear = ty;
     headline = h;
+    geoCoverage = gc;
   } catch (err) {
     loading.textContent = `Could not load the map (${err.message}). Boundaries come from scripts/fetch_data.sh; figures from sql/02_findings.sql.`;
     console.error(err);
     return;
   }
+
+  /* The first year whose geographic coverage clears the threshold, read from
+     the pipeline rather than written in. */
+  const geoFirst = (geoCoverage.find((r) => r.usable_for_geography) || {}).year || headline.first_year;
 
   const byCa = new Map(areas.map((a) => [String(a.ca), a]));
 
@@ -63,19 +69,19 @@
       key: "violent_per_100k",
       label: "Violent per 100k",
       format: (v) => f.dec(v, 0),
-      blurb: "Violent Part I incidents per 100,000 residents, 2002 onward",
+      blurb: `Violent Part I incidents per 100,000 residents, ${geoFirst} onward`,
     },
     {
       key: "violent",
       label: "Violent count",
       format: f.int,
-      blurb: "Violent Part I incidents, total across 2002 onward",
+      blurb: `Violent Part I incidents, total across ${geoFirst} onward`,
     },
     {
       key: "total_per_100k",
       label: "All per 100k",
       format: (v) => f.dec(v, 0),
-      blurb: "All recorded incidents per 100,000 residents, 2002 onward",
+      blurb: `All recorded incidents per 100,000 residents, ${geoFirst} onward`,
     },
     {
       key: "arrest_rate",
@@ -199,7 +205,7 @@
        a 77 x 26 table this page does not otherwise need — so the sparkline
        shows the citywide trend as context for the area's figures above. */
     const points = [...cityByYear.entries()]
-      .filter(([y]) => y >= 2002 && y < headline.last_year)
+      .filter(([y]) => y >= geoFirst && y < headline.last_year)
       .sort((x, y) => x[0] - y[0])
       .map(([y, n]) => ({ x: y, y: n }));
     sparkEl.hidden = false;
