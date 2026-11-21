@@ -73,9 +73,13 @@
   const topTypes = typesSorted.slice(0, 16);
   const mvtRow = d.typeTotals.find((t) => t.type === "MOTOR VEHICLE THEFT");
 
-  /* Vehicle theft before and after the 2022 break, from the monthly series. */
-  const mvtBefore = d.mvt.filter((m) => m.month >= "2019-01" && m.month <= "2021-12");
-  const mvtAfter = d.mvt.filter((m) => m.month >= "2023-01" && m.month <= "2023-12");
+  /* Vehicle theft before and after the 2022 break, from the monthly series.
+     Compared on the YYYY-MM prefix, not the raw value: DuckDB exports a DATE
+     as "2021-12-01", and "2021-12-01" <= "2021-12" is false as a string
+     comparison, which would silently drop December from each window. */
+  const ym = (m) => String(m.month).slice(0, 7);
+  const mvtBefore = d.mvt.filter((m) => ym(m) >= "2019-01" && ym(m) <= "2021-12");
+  const mvtAfter = d.mvt.filter((m) => ym(m) >= "2023-01" && ym(m) <= "2023-12");
   const mvtBeforeAvg = mvtBefore.reduce((s, m) => s + m.incidents, 0) / (mvtBefore.length || 1);
   const mvtAfterAvg = mvtAfter.reduce((s, m) => s + m.incidents, 0) / (mvtAfter.length || 1);
   const mvtPeakMonth = d.mvt.reduce((a, b) => (b.incidents > a.incidents ? b : a));
