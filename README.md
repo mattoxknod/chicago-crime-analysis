@@ -14,21 +14,38 @@ Live site: https://mattoxknod.github.io/chicago-crime-analysis/
 
 ## The argument
 
-Reported incidents in Chicago fell for twenty years. Over the same period the
-share of incidents ending in an arrest fell by roughly two thirds, which is
-usually told as a story about police failing to solve crimes.
+Reported incidents in Chicago fell 56.9% between 2002 and 2021. Over the same
+period the share of incidents ending in an arrest fell further still, from
+31.1% in 2005 to 11.8% in 2022.
 
-The report argues that most of that second decline is a composition effect.
-Arrest rates by offence do not form a spectrum of how hard crimes are to solve;
-they form two clusters. Narcotics, prostitution, gambling and liquor violations
-sit at or near 100%, because an officer's arrest is *how those offences enter
-the dataset at all* — nobody reports a possession offence by an unknown
-offender. Burglary sits near 6%. When narcotics enforcement collapsed, the
-citywide arrest rate fell mechanically, with no change in clearance required.
+There is a tidy explanation available for that second number, and the middle of
+the report is spent establishing that it accounts for about a quarter of it.
 
-The report separates the two groups, recomputes the rate with the offence mix
-held constant, and shows what is left: a real but much smaller decline in FBI
-Part I clearance.
+The tidy explanation: arrest rates by offence do not form a spectrum of how
+hard crimes are to solve, they form two clusters. Narcotics, prostitution,
+gambling and liquor violations sit near 100%, because an officer's arrest is
+*how those offences enter the dataset at all* — nobody reports a possession
+offence by an unknown offender. Burglary sits at 6%. Narcotics incidents fell
+92% between 2004 and 2022, so losing them drags the citywide average down with
+no change in clearance required.
+
+Holding the offence mix at its 2001 composition and applying each year's own
+within-group rates, the 2022 arrest rate would have been 16.5% rather than
+11.8%. Of the 17.5-point fall, 4.8 points is composition — about 27%.
+
+**The other three quarters is real.** The arrest rate fell within the
+citizen-reported group too, from 16.7% to 7.1%, and even within the
+police-initiated group, from 92.9% to 64.4%. FBI Part I clearance settles it,
+since no composition argument touches a fixed category: violent Part I
+clearance fell 42% and property Part I fell 73%, to the point where by 2022
+roughly 28 reported burglaries, thefts, vehicle thefts and arsons were recorded
+for every one that ended in an arrest.
+
+This was not the conclusion the project set out to reach. The original
+hypothesis was that composition explained most of the decline; it survived
+contact with a 500,000-row sample and died against the full extract. The
+decomposition is still the spine of the report — it just reaches a smaller and
+better-supported claim.
 
 ## Reproducing every number
 
@@ -45,6 +62,7 @@ python3 -m http.server 8000     # then open http://localhost:8000
 ```
 
 Requires the [DuckDB CLI](https://duckdb.org/docs/installation/) and `curl`. The
+extract is ~1.6 GB across 26 files and takes roughly half an hour to fetch. The
 pages need to be served over HTTP rather than opened as `file://`, because they
 fetch their data.
 
@@ -113,10 +131,11 @@ fetch, so the published site works without running anything:
 | `settings.json` | Share of incidents by setting, per year. |
 | `quality.json`, `quality_by_year.json` | Everything the colophon reports about completeness. |
 | `monthly.json` | Citywide monthly totals. |
-| `cube_main.csv` | year × month × community area × offence group × arrest × domestic. The dashboard's main source. |
+| `cube_main.csv` | year × month × community area × offence group × arrest × domestic. The dashboard's main source: 588,887 rows, 2003 onward. The offence group travels as an integer code over `type_lookup.csv`, which more than halves the file. |
 | `cube_clock.csv` | year × hour × weekday × offence group. |
 | `cube_citywide.csv` | year × month × offence group × arrest × domestic, including 2001. |
-| `ca_lookup.csv`, `type_group_map.json` | The lookups the dashboard needs. |
+| `ca_lookup.csv`, `type_lookup.csv`, `type_group_map.json` | The lookups the dashboard needs, and the offence-to-group mapping in full. |
+| `geo_coverage.json` | Geographic coding coverage per year, and which years clear the threshold for map and community-area figures. |
 
 ## Where the data comes from
 
@@ -145,10 +164,15 @@ All of these are stated on the page as well as here.
 - **`CRIMINAL SEXUAL ASSAULT` and `CRIM SEXUAL ASSAULT` are merged.** The city
   relabelled the same offence partway through the series; left alone it reads as
   one category ending and another beginning.
-- **2001 has no geographic coding** — 99.4% of that year has no community area
-  and 99.8% no ward, against 0.0% in every later year. Rows are flagged rather
-  than dropped: the citywide series uses all years, and anything broken out by
-  community area starts in 2002.
+- **Geographic coding phases in, so the maps start in 2003.** This is not a
+  case of one missing year: 2001 is 1.3% geocoded and 2002 is 72.8%, against
+  99.98%+ from 2003 on. A year that is a quarter unmapped understates each of
+  its community areas by about a quarter, which on a map looks like a real
+  shortfall rather than like missing data — the more dangerous of the two
+  failures. So rather than hardcoding a cutoff, `sql/01_load.sql` keeps any
+  year at or above 95% coverage and drops the rest. The citywide series still
+  uses all 26 years; only geographic breakouts are restricted, to 7,705,769
+  incidents.
 - **2026 is a partial year.** It is excluded from every annual chart and all
   year-over-year comparisons; "latest" always means 2025, the last full year.
   Monthly charts include it, which is why their final point drops.
