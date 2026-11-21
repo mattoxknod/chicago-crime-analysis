@@ -90,8 +90,9 @@ SELECT 'offence grouping is a partition' AS check,
        must((SELECT v FROM raw) = (SELECT v FROM grouped), 'offence grouping') AS result;
 
 -- How much landed in the residual "Other" group, reported rather than hidden.
+-- coalesce so that "nothing fell through" reads as 0.000 rather than NULL.
 SELECT 'share in residual Other group' AS check,
-       round(100.0 * sum(n) FILTER (WHERE t = 'Other') / sum(n), 3) AS pct
+       round(100.0 * coalesce(sum(n) FILTER (WHERE t = 'Other'), 0) / sum(n), 3) AS pct
 FROM (SELECT type_group AS t, n FROM cube_citywide);
 
 -- 6. The clock cube -------------------------------------------------------
