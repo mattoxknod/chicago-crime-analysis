@@ -572,8 +572,23 @@ const Atlas = (() => {
        are rounded, so the bar still reads as starting at zero. */
     const R = 4;
 
+    /* Category labels sit in the left margin, and a label longer than that
+       margin overflows the SVG and gets clipped by whatever contains it —
+       losing the start or end of a word with no indication. So they are
+       truncated to what actually fits, measured against the mono's advance
+       width, with the full text still reachable in the tooltip and the table.
+       The mono renders at 0.66rem; its advance is 0.6em, so ~6.3px a
+       character. */
+    const CHAR_W = 6.3;
+    const truncate = (s, px) => {
+      const max = Math.floor(px / CHAR_W);
+      const str = String(s);
+      return str.length <= max ? str : `${str.slice(0, Math.max(1, max - 1))}…`;
+    };
+
     if (horizontal) {
       const yb = band(labels, [0, plot.ih], 0.22);
+      const labelRoom = plot.m.left - 12;
       const x = linear([Math.min(0, ...values), Math.max(0, ...values) * 1.02], [0, plot.iw]);
       const grid = el("g", { class: "grid" }, plot.g);
       for (const t of niceTicks(x.domain[0], x.domain[1], 5)) {
@@ -594,12 +609,16 @@ const Atlas = (() => {
           ? `M${left + rr},${yy} h${w - rr} v${bw} h${-(w - rr)} a${rr},${rr} 0 0 1 ${-rr},${-rr} v${-(bw - 2 * rr)} a${rr},${rr} 0 0 1 ${rr},${-rr} z`
           : `M${left},${yy} h${w - rr} a${rr},${rr} 0 0 1 ${rr},${rr} v${bw - 2 * rr} a${rr},${rr} 0 0 1 ${-rr},${rr} h${-(w - rr)} z`;
         el("path", { class: "bar", d, fill: b.color || baseColor }, plot.g);
-        text(plot.g, b.label, {
+        const labelNode = text(plot.g, truncate(b.label, labelRoom), {
           x: -8,
           y: yy + bw / 2,
           "text-anchor": "end",
           "dominant-baseline": "middle",
         });
+        if (String(b.label).length * CHAR_W > labelRoom) {
+          const t = el("title", {}, labelNode);
+          t.textContent = b.label;
+        }
         /* Value at the bar end, outside the mark, so it is never clipped. */
         text(plot.g, valueFormat(b.value), {
           class: "mark-label",
@@ -1050,6 +1069,36 @@ const Atlas = (() => {
       "text-anchor": "end",
     });
 
+    /* Labels are placed before anything is drawn. With 77 entities over a few
+       hundred pixels the top ranks sit ~9px apart while the text needs ~13px,
+       so labelling them at their true y produces an unreadable block. Each
+       side is de-collided independently: walk down enforcing a minimum gap,
+       then walk back up to pull anything pushed past the bottom edge back in.
+       A label that ends up displaced gets a hairline leader to its dot. */
+    const GAP = 13;
+    function placeLabels(side) {
+      const wanted = items
+        .filter((d) => hi.size === 0 || hi.has(d.name))
+        .map((d) => ({ d, target: y(side === "left" ? d.leftRank : d.rightRank) }))
+        .sort((a, b) => a.target - b.target);
+
+      let prev = -Infinity;
+      for (const L of wanted) {
+        L.y = Math.max(L.target, prev + GAP);
+        prev = L.y;
+      }
+      /* Pull back inside the plot if the forward pass overflowed. */
+      let next = Infinity;
+      for (let i = wanted.length - 1; i >= 0; i--) {
+        const L = wanted[i];
+        L.y = Math.min(L.y, next - GAP, plot.ih);
+        next = L.y;
+      }
+      return new Map(wanted.map((L) => [L.d.name, L]));
+    }
+    const leftLabels = placeLabels("left");
+    const rightLabels = placeLabels("right");
+
     for (const d of items) {
       const emphasised = hi.size === 0 || hi.has(d.name);
       /* Emphasis by weight and ink, not by a second hue: everything here is
@@ -1094,16 +1143,34 @@ const Atlas = (() => {
       });
 
       if (emphasised) {
+        const L = leftLabels.get(d.name);
+        const R = rightLabels.get(d.name);
+        /* A leader only where the label had to move, so the ones that sit at
+           their true position stay clean. */
+        if (L && Math.abs(L.y - L.target) > 2) {
+          el(
+            "line",
+            { x1: -8, y1: L.y, x2: -2, y2: L.target, stroke: token("--rule-strong"), "stroke-width": 1 },
+            g
+          );
+        }
+        if (R && Math.abs(R.y - R.target) > 2) {
+          el(
+            "line",
+            { x1: plot.iw + 8, y1: R.y, x2: plot.iw + 2, y2: R.target, stroke: token("--rule-strong"), "stroke-width": 1 },
+            g
+          );
+        }
         text(g, `${d.leftRank}. ${d.name}`, {
-          x: -10,
-          y: y(d.leftRank),
+          x: -12,
+          y: L ? L.y : y(d.leftRank),
           "text-anchor": "end",
           "dominant-baseline": "middle",
           fill: "var(--ink)",
         });
         text(g, `${d.rightRank}. ${d.name}`, {
-          x: plot.iw + 10,
-          y: y(d.rightRank),
+          x: plot.iw + 12,
+          y: R ? R.y : y(d.rightRank),
           "text-anchor": "start",
           "dominant-baseline": "middle",
           fill: "var(--ink)",

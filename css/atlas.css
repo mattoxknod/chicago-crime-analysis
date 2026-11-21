@@ -241,13 +241,26 @@ a:hover {
 /* --- Headline figures ---------------------------------------------------- */
 /* Stat tiles: a hero number is a form in its own right, not a chart. */
 
+/* The 1px gap over a ruled background is what draws the hairlines between
+   tiles. That trick only works if the column count divides the tile count —
+   otherwise the empty cells in the last row show the background as a slab. So
+   the columns are set explicitly at each breakpoint rather than left to
+   auto-fit, which cannot know how many tiles there are. */
 .keyfigures {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+    grid-template-columns: 1fr;
     gap: 1px;
     background-color: var(--rule);
     border: 1px solid var(--rule);
     margin-block: clamp(2rem, 5vw, 3.5rem);
+}
+
+@media (min-width: 30rem) {
+    .keyfigures { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 52rem) {
+    .keyfigures { grid-template-columns: repeat(3, 1fr); }
 }
 
 .keyfigure {
@@ -567,7 +580,9 @@ table.data tbody tr:last-child td {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
     gap: 1rem 1.25rem;
-    align-items: end;
+    /* start, not end: fields of different heights should align by their
+       labels, otherwise a short control floats against a tall neighbour. */
+    align-items: start;
     padding: 1.25rem;
     background-color: var(--leaf);
     border: 1px solid var(--rule);
@@ -668,16 +683,22 @@ table.data tbody tr:last-child td {
 /* Nominal categories, so every panel takes the same slot-1 hue; the panel
    heading carries identity. */
 
+/* The panel count varies with the data, so no fixed column count can divide
+   it. Instead of bleeding a ruled background through the 1px gaps — which
+   would leave the last row's empty cells as a dark slab — each panel draws its
+   own hairline with an outward box-shadow. Adjacent shadows meet across the
+   1px gap to form a single line, and an empty cell is simply blank paper. */
 .multiples {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
     gap: 1px;
-    background-color: var(--rule);
+    background-color: var(--leaf);
     border: 1px solid var(--rule);
 }
 
 .multiple {
     background-color: var(--leaf);
+    box-shadow: 0 0 0 1px var(--rule);
     padding: 0.7rem 0.8rem 0.5rem;
     min-width: 0;
 }

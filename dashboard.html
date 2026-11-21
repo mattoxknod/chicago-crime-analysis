@@ -22,8 +22,11 @@
   }
   .sheet__head p { margin: 0; max-width: var(--measure); color: var(--ink-soft); }
 
-  /* One filter row above everything it scopes, never per-chart filters. */
+  /* One filter block above everything it scopes, never per-chart filters. */
   .filters { margin-bottom: 1.25rem; }
+  .controls--compact { border-bottom: 0; }
+  .controls--lists { border-top: 1px solid var(--rule); grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+  .controls--compact + .controls--lists { margin-top: -1px; }
   .filters__actions {
     display: flex;
     flex-wrap: wrap;
@@ -53,6 +56,10 @@
     grid-template-columns: repeat(auto-fit, minmax(23rem, 1fr));
     gap: 1.5rem;
     margin-top: 1.5rem;
+    /* Panels size to their own content. The map is far taller than the
+       heatmap beside it, and stretching the row would leave the shorter
+       panel with a block of dead space under its chart. */
+    align-items: start;
   }
 
   .panel {
@@ -116,7 +123,10 @@
          ================================================================= -->
     <section class="filters" aria-labelledby="filters-heading">
       <h2 class="visually-hidden" id="filters-heading">Filters</h2>
-      <div class="controls">
+      <!-- Two rows rather than one grid: the multi-selects are several times
+           taller than the compact controls, and letting them share a track
+           leaves the short ones stranded against odd row heights. -->
+      <div class="controls controls--compact">
         <div class="field">
           <label class="field__label" for="f-from">From year</label>
           <div class="range">
@@ -157,6 +167,8 @@
             <option value="0">Non-domestic only</option>
           </select>
         </div>
+      </div>
+      <div class="controls controls--lists">
         <div class="field">
           <label class="field__label" for="f-types">Offence group <span data-count="types"></span></label>
           <select id="f-types" data-filter="types" multiple></select>

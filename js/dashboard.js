@@ -537,7 +537,7 @@
       axisFormat: measure.axis,
       width: 560,
       height: Math.max(220, shown.length * 26 + 50),
-      margin: { left: 140, right: 70, top: 8, bottom: 28 },
+      margin: { left: 160, right: 74, top: 8, bottom: 28 },
       title: `${measure.label} by ${breakdown.label.toLowerCase()}`,
     });
 
