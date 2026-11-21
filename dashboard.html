@@ -25,7 +25,7 @@
   /* One filter block above everything it scopes, never per-chart filters. */
   .filters { margin-bottom: 1.25rem; }
   .controls--compact { border-bottom: 0; }
-  .controls--lists { border-top: 1px solid var(--rule); grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+  .controls--lists { border-top: 1px solid var(--rule); grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); }
   .controls--compact + .controls--lists { margin-top: -1px; }
   .filters__actions {
     display: flex;
@@ -46,14 +46,14 @@
 
   .switches {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
     gap: 1rem 1.25rem;
     margin-bottom: 1.5rem;
   }
 
   .grid-charts {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(23rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(23rem, 100%), 1fr));
     gap: 1.5rem;
     margin-top: 1.5rem;
     /* Panels size to their own content. The map is far taller than the
