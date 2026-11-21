@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Chicago, Reported</title>
+<meta name="description" content="Filter 8.7 million Chicago police incident records by year, offence, community area, arrest and domestic flag, and watch every figure recompute in the browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/atlas.css">
+<style>
+  /* Dashboard-only layout. Everything visual comes from atlas.css. */
+  .sheet { padding-block: clamp(1.5rem, 4vw, 2.5rem); }
+
+  .sheet__head { border-bottom: 1px solid var(--rule); padding-bottom: 1.25rem; margin-bottom: 1.5rem; }
+  .sheet__head h1 {
+    margin: 0 0 0.5rem;
+    font-size: clamp(1.6rem, 1.1rem + 2vw, 2.4rem);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .sheet__head p { margin: 0; max-width: var(--measure); color: var(--ink-soft); }
+
+  /* One filter row above everything it scopes, never per-chart filters. */
+  .filters { margin-bottom: 1.25rem; }
+  .filters__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule);
+  }
+  .filters__summary {
+    font-family: var(--font-figure);
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+
+  .switches {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .grid-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(23rem, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    background-color: var(--leaf);
+    padding: 1rem 1.1rem 0.75rem;
+    min-width: 0;
+  }
+  .panel > h2 {
+    margin: 0 0 0.15rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .panel__sub {
+    margin: 0 0 0.75rem;
+    font-family: var(--font-figure);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  /* Hold the previous render while recomputing: no skeleton flash, no jump. */
+  .is-busy { opacity: 0.55; transition: opacity 120ms ease-out; }
+
+  .range { display: flex; align-items: center; gap: 0.5rem; }
+  .range input[type="range"] { width: 100%; accent-color: var(--series-1); }
+  .range__value {
+    font-family: var(--font-figure);
+    font-size: 0.78rem;
+    color: var(--ink);
+    min-width: 2.6rem;
+    text-align: right;
+  }
+
+  .loading { padding: 3rem 0; color: var(--ink-muted); font-family: var(--font-figure); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header data-masthead></header>
+
+<main class="wrap sheet">
+
+  <div class="sheet__head">
+    <h1>Work the records yourself</h1>
+    <p>
+      Every figure below is computed in your browser from pre-aggregated counts
+      covering all 8.7 million incidents. Change a filter and everything —
+      summary figures, all four charts, and the table — recomputes against the
+      same slice.
+    </p>
+  </div>
+
+  <div class="loading" data-loading>Loading the aggregates…</div>
+
+  <div hidden data-app>
+
+    <!-- =================================================================
+         Filters: one row, scoping everything below it
+         ================================================================= -->
+    <section class="filters" aria-labelledby="filters-heading">
+      <h2 class="visually-hidden" id="filters-heading">Filters</h2>
+      <div class="controls">
+        <div class="field">
+          <label class="field__label" for="f-from">From year</label>
+          <div class="range">
+            <input type="range" id="f-from" data-filter="from">
+            <output class="range__value" data-out="from"></output>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-to">To year</label>
+          <div class="range">
+            <input type="range" id="f-to" data-filter="to">
+            <output class="range__value" data-out="to"></output>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-season">Months</label>
+          <select id="f-season" data-filter="season">
+            <option value="all">All months</option>
+            <option value="winter">Winter (Dec–Feb)</option>
+            <option value="spring">Spring (Mar–May)</option>
+            <option value="summer">Summer (Jun–Aug)</option>
+            <option value="autumn">Autumn (Sep–Nov)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-arrest">Arrest made</label>
+          <select id="f-arrest" data-filter="arrest">
+            <option value="all">Either</option>
+            <option value="1">Arrest made</option>
+            <option value="0">No arrest</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-domestic">Domestic</label>
+          <select id="f-domestic" data-filter="domestic">
+            <option value="all">Either</option>
+            <option value="1">Domestic only</option>
+            <option value="0">Non-domestic only</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-types">Offence group <span data-count="types"></span></label>
+          <select id="f-types" data-filter="types" multiple></select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-areas">Community area <span data-count="areas"></span></label>
+          <select id="f-areas" data-filter="areas" multiple></select>
+        </div>
+      </div>
+      <div class="filters__actions">
+        <p class="filters__summary" data-slice></p>
+        <button type="button" class="btn" data-reset>Reset every filter</button>
+      </div>
+    </section>
+
+    <!-- =================================================================
+         Summary figures, recomputed with the filters
+         ================================================================= -->
+    <section aria-label="Summary figures">
+      <div class="keyfigures" data-summary></div>
+    </section>
+
+    <!-- =================================================================
+         Measure and breakdown switches
+         ================================================================= -->
+    <section class="switches" aria-label="Chart controls">
+      <div class="field">
+        <span class="field__label" id="lbl-measure">Measure</span>
+        <div class="segmented" role="group" aria-labelledby="lbl-measure" data-switch="measure"></div>
+      </div>
+      <div class="field">
+        <span class="field__label" id="lbl-breakdown">Break down by</span>
+        <div class="segmented" role="group" aria-labelledby="lbl-breakdown" data-switch="breakdown"></div>
+      </div>
+    </section>
+
+    <!-- =================================================================
+         Charts
+         ================================================================= -->
+    <div class="grid-charts">
+      <section class="panel">
+        <h2>Over time</h2>
+        <p class="panel__sub" data-sub="time"></p>
+        <div data-chart="time"></div>
+      </section>
+
+      <section class="panel">
+        <h2 data-title="breakdown">Breakdown</h2>
+        <p class="panel__sub" data-sub="breakdown"></p>
+        <div data-chart="breakdown"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Hour and weekday</h2>
+        <p class="panel__sub" data-sub="clock"></p>
+        <div data-chart="clock"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Community areas</h2>
+        <p class="panel__sub" data-sub="map"></p>
+        <div data-chart="map"></div>
+      </section>
+    </div>
+
+    <!-- =================================================================
+         The numbers behind the current view
+         ================================================================= -->
+    <section style="margin-top:1.5rem">
+      <h2 class="visually-hidden">The numbers behind this view</h2>
+      <div data-table></div>
+    </section>
+
+    <p class="filters__summary" style="margin-top:1rem" data-provenance></p>
+
+  </div>
+</main>
+
+<footer class="colophon">
+  <div class="wrap">
+    <p>
+      The aggregates this page loads are built by <code>sql/03_cubes.sql</code>
+      from the same incident table the report's figures come from, and
+      <code>sql/04_verify.sql</code> recomputes the report's headline numbers
+      from these aggregates to confirm the two pages agree.
+    </p>
+  </div>
+</footer>
+
+<script src="js/atlas-charts.js"></script>
+<script src="js/atlas-data.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
