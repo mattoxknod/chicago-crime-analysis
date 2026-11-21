@@ -1,0 +1,18 @@
+# Raw inputs are not committed: the crime extract is ~1.9 GB across 18 chunks,
+# far past GitHub's 100 MB per-file limit. scripts/fetch_crimes.sh and
+# scripts/fetch_data.sh rebuild data/raw/ from the city's portal, and
+# sql/ rebuilds data/derived/ from data/raw/.
+data/raw/
+
+# The working DuckDB database, rebuilt by sql/01_load.sql.
+data/derived/*.duckdb
+data/derived/*.duckdb.wal
+
+# The small aggregates the site actually loads ARE committed, so the published
+# pages work from a clean clone with no data pipeline run. They live in
+# data/derived/ alongside the database and are listed explicitly in README.md.
+
+node_modules/
+.DS_Store
+Thumbs.db
+*.part
