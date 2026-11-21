@@ -84,6 +84,12 @@
   const mvtBeforeAvg = mvtBefore.reduce((s, m) => s + m.incidents, 0) / (mvtBefore.length || 1);
   const mvtAfterAvg = mvtAfter.reduce((s, m) => s + m.incidents, 0) / (mvtAfter.length || 1);
   const mvtPeakMonth = d.mvt.reduce((a, b) => (b.incidents > a.incidents ? b : a));
+  /* The early years of the series for comparison: the post-2021 surge is a
+     return to early-2000s levels rather than an all-time high, and the chart
+     shows that whether or not the prose admits it. */
+  const mvtEarly = d.mvt.filter((m) => ym(m) < "2010-01");
+  const mvtEarlyPeak = mvtEarly.reduce((a, b) => (b.incidents > a.incidents ? b : a));
+  const mvtEarlyAvg = mvtEarly.reduce((s, m) => s + m.incidents, 0) / (mvtEarly.length || 1);
 
   const seasonPeak = d.season.reduce((a, b) => (b.violent_vs_mean > a.violent_vs_mean ? b : a));
   const seasonLow = d.season.reduce((a, b) => (b.violent_vs_mean < a.violent_vs_mean ? b : a));
@@ -585,7 +591,7 @@
      Plate 7 — vehicle theft
      ========================================================================= */
 
-  setText("p7", `Motor vehicle theft broke pattern in 2022 and has not gone back`);
+  setText("p7", `Motor vehicle theft tripled after 2021, back to levels the city last saw in 2001`);
   setProse("p7", [
     `Vehicle theft ran at an average of
      ${n(f.int(mvtBeforeAvg))} incidents a month across ${n("2019")}–${n("2021")}.
@@ -593,6 +599,14 @@
      ${n(f.dec(mvtAfterAvg / mvtBeforeAvg, 1))} times the earlier level. The
      series peaks at ${n(f.int(mvtPeakMonth.incidents))} incidents in
      ${n(D.monthLabel(D.monthToX(mvtPeakMonth.month)))}.`,
+    `The chart also argues against calling this unprecedented. Vehicle theft
+     ran at ${n(f.int(mvtEarlyAvg))} a month across the first nine years of the
+     series and peaked at ${n(f.int(mvtEarlyPeak.incidents))} in
+     ${n(D.monthLabel(D.monthToX(mvtEarlyPeak.month)))} — within
+     ${n(f.pct(100 * (1 - mvtEarlyPeak.incidents / mvtPeakMonth.incidents), 0))}
+     of the ${n(mvtPeakMonth.month.slice(0, 4))} high. What happened after 2021
+     is better described as a return to early-2000s levels after a long decline
+     than as an all-time record.`,
     `A monthly series is doing necessary work here. The break falls inside a
      calendar year, so an annual chart would spread it across two bars and make
      a step look like a slope. The widely reported cause is a published
@@ -846,13 +860,22 @@
      Plate 12 — rate against income
      ========================================================================= */
 
-  setText("p12", `Violent incident rates track income closely`);
+  /* Describe the correlation at the strength it actually has, rather than
+     reaching for "strong" regardless of what came back. */
+  const corrAbs = Math.abs(incomeCorr);
+  const corrWord = corrAbs >= 0.7 ? "strong" : corrAbs >= 0.4 ? "moderate" : "weak";
+  const r2 = incomeCorr * incomeCorr;
+  setText("p12", `Violent incident rates run higher where incomes are lower, but income is not most of the story`);
   setProse("p12", [
     `Plotting each community area's violent Part I rate against its per-capita
      income gives a correlation of
      ${n(f.dec(incomeCorr, 2))} across the ${n(d.areas.filter((a) => a.per_capita_income != null).length)}
-     areas where both measures exist. The relationship is strong and negative:
-     areas with lower income record substantially more violence per resident.`,
+     areas where both measures exist. That is a ${corrWord} negative
+     relationship: lower-income areas do record more violence per resident. It
+     is worth being precise about how much, though — an <em>r</em> of
+     ${n(f.dec(incomeCorr, 2))} means income accounts for roughly
+     ${n(f.pct(100 * r2, 0))} of the variation in rates between areas, and
+     leaves the other ${n(f.pct(100 * (1 - r2), 0))} to everything else.`,
     `What that does not establish is any direction of causation, and the
      scatter cannot distinguish between the several mechanisms that would
      produce the same picture. The income figures are also from a different and
