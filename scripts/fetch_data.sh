@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Downloads every raw input this project uses. Run from the repository root:
+# Downloads the supporting reference data (not the incident extract). Run from the repository root:
 #   bash scripts/fetch_data.sh
 #
 # Nothing here is committed to the repository: data/raw/ is gitignored because
-# the crime extract is ~1.8 GB, well past GitHub's 100 MB per-file limit. The
-# committed artifacts are the small aggregates in data/derived/, which
-# sql/build_cubes.sql rebuilds from these files.
+# the incident extract alongside these files runs to ~1.9 GB, well past
+# GitHub's 100 MB per-file limit. The committed artifacts are the small
+# aggregates in data/derived/, which sql/02_findings.sql and sql/03_cubes.sql
+# rebuild from the raw data.
 #
 # Every URL below was verified reachable on 2026-11-20.
 
@@ -31,24 +32,25 @@ fetch () {
   printf '    -> %s (%s bytes)\n' "$out" "$(wc -c < "$out")"
 }
 
-echo "1/4  Crimes, 2001 to present (one row per reported incident)"
-fetch "https://data.cityofchicago.org/api/views/ijzp-q8t2/rows.csv?accessType=DOWNLOAD" \
-      "$RAW/crimes.csv" "crimes.csv"
+# The incident extract itself is NOT fetched here. It lives in
+# scripts/fetch_crimes.sh, which slices it by year and checks each year's row
+# count; the portal's one-click export this script originally used is a
+# non-resumable ~1.9 GB stream that reset on us partway through.
 
-echo "2/4  ACS 5-year population and demographics by community area (2023)"
+echo "1/3  ACS 5-year population and demographics by community area (2023)"
 fetch "https://data.cityofchicago.org/resource/t68z-cikk.csv?\$limit=200" \
       "$RAW/acs_community_area.csv" "acs_community_area.csv"
 
-echo "3/4  Selected socioeconomic indicators by community area (2008-2012)"
+echo "2/3  Selected socioeconomic indicators by community area (2008-2012)"
 fetch "https://data.cityofchicago.org/resource/kn9c-c2s2.csv?\$limit=200" \
       "$RAW/socioeconomic.csv" "socioeconomic.csv"
 
 # Note: the older cauq-8yn6 geospatial export now returns an empty
 # FeatureCollection. igwz-8jzy is the live boundary layer, and its
-# area_numbe property joins to community_area in crimes.csv.
-echo "4/4  Community area boundaries (GeoJSON, for the map page)"
+# area_numbe property joins to community_area in the incident extract.
+echo "3/3  Community area boundaries (GeoJSON, for the map page)"
 fetch "https://data.cityofchicago.org/resource/igwz-8jzy.geojson?\$limit=100" \
       "$RAW/community_areas.geojson" "community_areas.geojson"
 
 echo
-echo "Done. Next: duckdb -c \".read sql/build_cubes.sql\" to rebuild data/derived/."
+echo "Done. Next: bash scripts/fetch_crimes.sh for the incident extract."
