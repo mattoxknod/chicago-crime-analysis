@@ -1,0 +1,733 @@
+@charset "UTF-8";
+/* ===========================================================================
+   atlas.css — the shared design system for both pages.
+   ---------------------------------------------------------------------------
+   The look is a print atlas: warm paper, hairline rules, a transitional serif
+   for prose and a mono for every figure, so numbers line up in columns the way
+   they would in a printed table of plates.
+
+   The site commits to a single light palette on purpose. A paper ground is the
+   whole conceit, and a dark "inverted paper" mode would read as a different
+   document rather than the same one at night.
+
+   Every categorical, sequential and diverging value below was run through the
+   data-viz palette validator rather than picked by eye. What it checks and
+   what these values scored is recorded in css/PALETTE.md.
+   =========================================================================== */
+
+/* --- Tokens --------------------------------------------------------------- */
+
+:root {
+    /* Surfaces. --paper is the page; --leaf is a raised plate or table. */
+    --paper: #f4f0e6;
+    --leaf: #fbf9f3;
+    --rule: #ddd6c6;
+    --rule-strong: #c4b9a2;
+
+    /* Ink. All three clear WCAG 4.5:1 on both surfaces, so any of them is
+       legal for body text; --ink-muted is 4.92:1 on paper. */
+    --ink: #231f1a;
+    --ink-soft: #565044;
+    --ink-muted: #6f6757;
+
+    /* Categorical series. Fixed order — assigned in sequence, never cycled.
+       Full eight clear the adjacent gates; only the first THREE clear
+       all-pairs, so scatter, choropleth and small multiples cap at three
+       series and fold the rest into "other". */
+    --series-1: #2a5f9b; /* indigo    */
+    --series-2: #c0562c; /* terracotta*/
+    --series-3: #008571; /* verdigris */
+    --series-4: #a87a0c; /* ochre     */
+    --series-5: #bf6482; /* clay rose */
+    --series-6: #5d7f26; /* moss      */
+    --series-7: #574596; /* aubergine */
+    --series-8: #ad3a30; /* brick     */
+
+    /* Sequential ramp, indigo, light to dark. The two lightest steps are for
+       continuous fills only; binned choropleth legends start at --seq-3, the
+       lightest step that clears 2:1 against paper. */
+    --seq-1: #dce5f0;
+    --seq-2: #bbcde4;
+    --seq-3: #8daacf;
+    --seq-4: #6e90bd;
+    --seq-5: #4c72a4;
+    --seq-6: #33578a;
+    --seq-7: #1e3c63;
+
+    /* Diverging, indigo <-> brick across a warm neutral. For change measures
+       where the sign is the point. */
+    --div-cool-3: #1e3c63;
+    --div-cool-2: #4c72a4;
+    --div-cool-1: #8daacf;
+    --div-mid: #e6e1d4;
+    --div-warm-1: #d99584;
+    --div-warm-2: #b85444;
+    --div-warm-3: #9c2f26;
+
+    /* Type */
+    --font-text: Spectral, Georgia, "Times New Roman", serif;
+    --font-figure: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+    /* Measure and rhythm */
+    --measure: 34em;
+    --gutter: clamp(1rem, 4vw, 3.5rem);
+}
+
+/* --- Reset and base ------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-text);
+    font-size: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+    line-height: 1.65;
+    /* Old-style figures in prose; the mono handles tabular contexts. */
+    font-variant-numeric: oldstyle-nums proportional-nums;
+}
+
+/* A barely-there paper tooth. Inline SVG so there is no second request, and
+   low enough in contrast that it never competes with a hairline rule. */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.4;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    html {
+        scroll-behavior: smooth;
+    }
+}
+
+img,
+svg {
+    max-width: 100%;
+}
+
+a {
+    color: var(--series-1);
+    text-underline-offset: 0.15em;
+    text-decoration-thickness: from-font;
+}
+
+a:hover {
+    color: var(--series-2);
+}
+
+:focus-visible {
+    outline: 2px solid var(--series-1);
+    outline-offset: 2px;
+}
+
+/* --- Layout -------------------------------------------------------------- */
+
+.wrap {
+    max-width: 78rem;
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+}
+
+/* Prose columns hold a reading measure; figures are allowed to run wider. */
+.prose {
+    max-width: var(--measure);
+}
+
+/* --- Masthead and navigation --------------------------------------------- */
+/* One nav bar, one type scale, one palette across both pages. */
+
+.masthead {
+    border-bottom: 1px solid var(--rule-strong);
+    background-color: var(--paper);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.masthead__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 1.5rem;
+    padding-block: 0.7rem;
+}
+
+.masthead__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.masthead__title a {
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.masthead__nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    margin-left: auto;
+    font-family: var(--font-figure);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.masthead__nav a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding-bottom: 2px;
+    border-bottom: 2px solid transparent;
+}
+
+.masthead__nav a:hover {
+    color: var(--ink);
+    border-bottom-color: var(--rule-strong);
+}
+
+.masthead__nav a[aria-current="page"] {
+    color: var(--ink);
+    border-bottom-color: var(--series-2);
+}
+
+/* --- Title block --------------------------------------------------------- */
+
+.titleblock {
+    padding-block: clamp(2.5rem, 7vw, 5.5rem) clamp(1.5rem, 4vw, 3rem);
+    border-bottom: 1px solid var(--rule);
+}
+
+.titleblock h1 {
+    margin: 0 0 0.6em;
+    font-size: clamp(2.1rem, 1.2rem + 4.2vw, 4.25rem);
+    font-weight: 600;
+    line-height: 1.04;
+    letter-spacing: -0.015em;
+    max-width: 24em;
+}
+
+.titleblock__byline {
+    font-family: var(--font-figure);
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 1.75rem;
+}
+
+.titleblock__standfirst {
+    font-size: 1.1em;
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    margin: 0;
+}
+
+/* --- Headline figures ---------------------------------------------------- */
+/* Stat tiles: a hero number is a form in its own right, not a chart. */
+
+.keyfigures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+    gap: 1px;
+    background-color: var(--rule);
+    border: 1px solid var(--rule);
+    margin-block: clamp(2rem, 5vw, 3.5rem);
+}
+
+.keyfigure {
+    background-color: var(--leaf);
+    padding: 1.4rem 1.5rem 1.5rem;
+}
+
+.keyfigure__value {
+    font-family: var(--font-figure);
+    font-size: clamp(1.75rem, 1.2rem + 1.7vw, 2.5rem);
+    font-weight: 500;
+    /* Proportional, not tabular. Equal-width digits are for columns that align
+       vertically; at display size they make a number like 121 look gappy. */
+    font-variant-numeric: proportional-nums lining-nums;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    display: block;
+}
+
+.keyfigure__label {
+    display: block;
+    margin-top: 0.55rem;
+    font-size: 0.875rem;
+    color: var(--ink-soft);
+    line-height: 1.4;
+}
+
+.keyfigure__note {
+    display: block;
+    margin-top: 0.3rem;
+    font-family: var(--font-figure);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    color: var(--ink-muted);
+}
+
+/* --- Plates (report sections) -------------------------------------------- */
+
+.plate {
+    padding-block: clamp(2.5rem, 6vw, 4.5rem);
+    border-top: 1px solid var(--rule);
+}
+
+.plate__number {
+    font-family: var(--font-figure);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 0.9rem;
+}
+
+.plate h2 {
+    margin: 0 0 1rem;
+    font-size: clamp(1.45rem, 1.1rem + 1.4vw, 2.1rem);
+    font-weight: 600;
+    line-height: 1.18;
+    letter-spacing: -0.01em;
+    max-width: 30em;
+}
+
+.plate p {
+    max-width: var(--measure);
+}
+
+/* A number quoted inside prose, so it reads as a figure not a word. */
+.num {
+    font-family: var(--font-figure);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-size: 0.94em;
+}
+
+/* --- Figures ------------------------------------------------------------- */
+
+.figure {
+    margin: 2rem 0 0;
+}
+
+.figure__frame {
+    background-color: var(--leaf);
+    border: 1px solid var(--rule);
+    padding: 1.25rem 1.25rem 0.75rem;
+}
+
+.figure__caption {
+    margin: 0.7rem 0 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--ink-muted);
+    max-width: 46em;
+}
+
+.figure__caption b {
+    color: var(--ink-soft);
+    font-weight: 600;
+}
+
+/* Every figure carries a table twin, so no value is reachable only by hovering
+   a mark. The toggle sits with the caption and the table replaces the chart. */
+.figure__tools {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    margin-top: 0.7rem;
+}
+
+.figure__toggle {
+    appearance: none;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--rule-strong);
+    padding: 0 0 1px;
+    cursor: pointer;
+    flex: none;
+    font-family: var(--font-figure);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+}
+
+.figure__toggle:hover {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+}
+
+/* Charts are drawn as inline SVG and scale with their frame. */
+.chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+/* Recessive axes and grid: present, never competing with the data. */
+.chart .axis line,
+.chart .axis path {
+    stroke: var(--rule-strong);
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+.chart .grid line {
+    stroke: var(--rule);
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+.chart text {
+    font-family: var(--font-figure);
+    font-size: 0.66rem;
+    fill: var(--ink-muted);
+    font-variant-numeric: tabular-nums lining-nums;
+}
+
+.chart .axis-title {
+    fill: var(--ink-soft);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* Direct labels sit in ink, never in the series colour: the mark beside them
+   already carries identity. */
+.chart .mark-label {
+    fill: var(--ink);
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+/* 2px lines, 4px rounded data-ends on bars, 2px surface gaps between fills. */
+.chart .line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.chart .bar {
+    stroke: var(--leaf);
+    stroke-width: 2;
+}
+
+.chart .dot {
+    stroke: var(--leaf);
+    stroke-width: 2;
+}
+
+.chart .annotation line {
+    stroke: var(--ink-soft);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+}
+
+.chart .annotation text {
+    fill: var(--ink-soft);
+    font-size: 0.68rem;
+}
+
+/* --- Legend -------------------------------------------------------------- */
+/* Always present for two or more series, so identity is never colour alone. */
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+    margin: 0 0 0.9rem;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-figure);
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+}
+
+.legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.legend__swatch {
+    width: 0.7rem;
+    height: 0.7rem;
+    flex: none;
+    border-radius: 2px;
+}
+
+/* --- Tooltip ------------------------------------------------------------- */
+
+.tooltip {
+    position: absolute;
+    z-index: 30;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -115%);
+    background-color: var(--ink);
+    color: var(--paper);
+    padding: 0.45rem 0.6rem;
+    border-radius: 3px;
+    font-family: var(--font-figure);
+    font-size: 0.72rem;
+    line-height: 1.45;
+    white-space: nowrap;
+    transition: opacity 120ms ease-out;
+    box-shadow: 0 2px 10px rgb(35 31 26 / 0.18);
+}
+
+.tooltip[data-visible="true"] {
+    opacity: 1;
+}
+
+.tooltip b {
+    font-weight: 500;
+}
+
+.tooltip__key {
+    color: var(--rule);
+}
+
+/* --- Tables -------------------------------------------------------------- */
+
+.table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    background-color: var(--leaf);
+}
+
+table.data {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--font-figure);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums lining-nums;
+}
+
+table.data caption {
+    text-align: left;
+    padding: 0.8rem 1rem;
+    font-family: var(--font-text);
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--rule);
+}
+
+table.data th,
+table.data td {
+    padding: 0.45rem 1rem;
+    text-align: right;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+}
+
+table.data th:first-child,
+table.data td:first-child {
+    text-align: left;
+}
+
+table.data thead th {
+    font-weight: 500;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--rule-strong);
+    position: sticky;
+    top: 0;
+    background-color: var(--leaf);
+}
+
+table.data tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* --- Controls ------------------------------------------------------------ */
+
+.controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 1rem 1.25rem;
+    align-items: end;
+    padding: 1.25rem;
+    background-color: var(--leaf);
+    border: 1px solid var(--rule);
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.field__label {
+    font-family: var(--font-figure);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+}
+
+.field select,
+.field input[type="search"] {
+    font-family: var(--font-text);
+    font-size: 0.9rem;
+    color: var(--ink);
+    background-color: var(--paper);
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    padding: 0.4rem 0.5rem;
+    width: 100%;
+}
+
+.field select[multiple] {
+    min-height: 7.5rem;
+    font-family: var(--font-figure);
+    font-size: 0.76rem;
+}
+
+/* Segmented control, for measure and breakdown switches. */
+.segmented {
+    display: flex;
+    flex-wrap: wrap;
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    overflow: hidden;
+    background-color: var(--paper);
+}
+
+.segmented button {
+    flex: 1 1 auto;
+    appearance: none;
+    border: 0;
+    border-right: 1px solid var(--rule);
+    background: transparent;
+    color: var(--ink-soft);
+    font-family: var(--font-figure);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.segmented button:last-child {
+    border-right: 0;
+}
+
+.segmented button:hover {
+    background-color: var(--rule);
+    color: var(--ink);
+}
+
+.segmented button[aria-pressed="true"] {
+    background-color: var(--ink);
+    color: var(--paper);
+}
+
+.btn {
+    appearance: none;
+    cursor: pointer;
+    font-family: var(--font-figure);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background-color: var(--paper);
+    border: 1px solid var(--ink-soft);
+    border-radius: 2px;
+    padding: 0.5rem 0.9rem;
+}
+
+.btn:hover {
+    background-color: var(--ink);
+    color: var(--paper);
+}
+
+/* --- Small multiples ----------------------------------------------------- */
+/* Nominal categories, so every panel takes the same slot-1 hue; the panel
+   heading carries identity. */
+
+.multiples {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: 1px;
+    background-color: var(--rule);
+    border: 1px solid var(--rule);
+}
+
+.multiple {
+    background-color: var(--leaf);
+    padding: 0.7rem 0.8rem 0.5rem;
+    min-width: 0;
+}
+
+.multiple__name {
+    font-family: var(--font-figure);
+    font-size: 0.64rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 0.1rem;
+    line-height: 1.3;
+}
+
+.multiple__value {
+    font-family: var(--font-figure);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums lining-nums;
+    color: var(--ink-muted);
+    margin: 0 0 0.35rem;
+}
+
+/* --- Footer -------------------------------------------------------------- */
+
+.colophon {
+    border-top: 1px solid var(--rule-strong);
+    margin-top: clamp(3rem, 7vw, 5rem);
+    padding-block: 2.5rem 3.5rem;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+}
+
+.colophon p {
+    max-width: 44em;
+}
+
+/* --- Utilities ----------------------------------------------------------- */
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+[hidden] {
+    display: none !important;
+}
